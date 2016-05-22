@@ -23,6 +23,33 @@ def get_wordnet_pos(treebank_tag):
     else:
         return treebank_tag
 
+def meaning_tag(tagged_word):
+    
+    # grab a converted pos tag (penn -> wordnet)
+    wn_tag = get_wordnet_pos(tagged_word[1])
+    
+    # grab meanings from wordnet
+    meanings = wn.synsets(tagged_word[0])
+    pos_meanings = []
+    
+    # prioritize meanings of the correct pos and exact word
+    for meaning in meanings:
+        meaning_name = meaning.name().split('.')
+        if meaning.pos() == wn_tag and meaning_name[0] == tagged_word[0]:
+            pos_meanings.insert(0,meaning)
+            break
+        elif meaning.pos() == wn_tag:
+            pos_meanings.append(meaning)
+    
+    # assign meaning (synset), prioritizing pos first
+    if len(pos_meanings) > 0:
+        tagged_word.append(pos_meanings[0].name())
+    elif len(meanings) > 0:
+        tagged_word.append(meanings[0].name())
+    # handle unknown words
+    else:
+        tagged_word.append('?')
+
 def parser(sent):
     #main function of this file
     
@@ -81,28 +108,7 @@ def parser(sent):
         
         # tag for meaning
         if tagged_sent[i][1] not in ('DT','PRP$','PRP'):
-            
-            # grab meanings from wordnet
-            meanings = wn.synsets(tagged_sent[i][0])
-            pos_meanings = []
-            
-            # prioritize meanings of the correct pos and exact word
-            for meaning in meanings:
-                meaning_name = meaning.name().split('.')
-                if meaning.pos() == wn_tag and meaning_name[0] == tagged_sent[i][0]:
-                    pos_meanings.insert(0,meaning)
-                    break
-                elif meaning.pos() == wn_tag:
-                    pos_meanings.append(meaning)
-            
-            # assign meaning (synset), prioritizing pos first
-            if len(pos_meanings) > 0:
-                tagged_sent[i].append(pos_meanings[0].name())
-            elif len(meanings) > 0:
-                tagged_sent[i].append(meanings[0].name())
-            # handle unknown words
-            else:
-                tagged_sent[i].append('?')
+            meaning_tag(tagged_sent[i])
         # assign pronouns and determiners an unknown meaning
         else:
             tagged_sent[i].append('?')
@@ -111,7 +117,7 @@ def parser(sent):
         
         # concatenate and tag infinitives
         if tagged_sent[i-1][1] == 'TO':
-            if tagged_sent[i][1] in ('VB','VBP',):
+            if tagged_sent[i][1] in ('VB','VBP'):
                 new_thing = tagged_sent[i-1][0] + ' ' + tagged_sent[i][0]
                 tagged_sent[i-1] = [new_thing,'INF',tagged_sent.pop(i)[2]]
                 continue
